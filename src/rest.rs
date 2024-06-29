@@ -224,6 +224,9 @@ async fn handle_socket(
         return;
     }
     let _res = tick(events.clone(), db, game_id).await;
+    if _res.is_err() {
+        tracing::info!("error {:?}", _res.unwrap_err());
+    }
 
     let (sock_sender, sock_receiver) = socket.split();
 

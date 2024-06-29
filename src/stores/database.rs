@@ -152,6 +152,9 @@ impl Repository {
         .bind(entity_id)
         .execute(&self.pool)
         .await?;
+
+        //TODO
+
         Ok(())
     }
 
@@ -448,25 +451,22 @@ impl Repository {
         &self,
         entity: &ShortEntity,
         game_id: &i64,
-        user_id: &String,
-        scenario_player_id: &i64,
+        seat_id: &i64,
     ) -> Result<i64, sqlx::error::Error> {
         Ok(sqlx::query(
             r#"
         INSERT INTO entity (game_id,
-                scenario_player_id,
-                user_id,
+                seat_id,
                 x,
                 y,
                 last_move_time,
                 next_move_time,
                 game_class) 
-            VALUES (?, ?, ?, ?, ?, 0, 0, ?)
+            VALUES (?, ?, ?, ?, 0, 0, ?)
             RETURNING id"#,
         )
         .bind(game_id)
-        .bind(scenario_player_id)
-        .bind(user_id)
+        .bind(seat_id)
         .bind(entity.x)
         .bind(entity.y)
         .bind(entity.game_class.clone())
@@ -480,20 +480,20 @@ impl Repository {
         user_id: &str,
         game_id: &i64,
         scenario_player_id: &i64,
-    ) -> Result<(), sqlx::error::Error> {
-        sqlx::query(
+    ) -> Result<i64, sqlx::error::Error> {
+        Ok(sqlx::query(
             r#"
         INSERT INTO seated_player (game_id,
                 user_id,
                 scenario_player_id) 
-            VALUES (?, ?, ?)"#,
+            VALUES (?, ?, ?) RETURNING id"#,
         )
         .bind(game_id)
         .bind(user_id)
         .bind(scenario_player_id)
-        .execute(&self.pool)
-        .await?;
-        Ok(())
+        .fetch_one(&self.pool)
+        .await?
+        .get(0))
     }
 
     pub async fn start_game(&self, game_id: &i64) -> Result<(), sqlx::error::Error> {
@@ -538,7 +538,7 @@ impl Repository {
     pub async fn get_trait_entity(&self, game_id: &i64) -> Result<Entity, sqlx::error::Error> {
         Ok(sqlx::query_as::<_, Entity>(
             r#"
-        SELECT *, seat.scenario_player_id, seat.user_id FROM entity JOIN seated_player AS seat ON entity.seat_id = seat.id WHERE game_id = ? ORDER BY next_move_time, id LIMIT 1
+        SELECT entity.*, seated_player.scenario_player_id, seated_player.user_id FROM entity JOIN seated_player ON entity.seat_id = seated_player.id WHERE entity.game_id = ? ORDER BY next_move_time, id LIMIT 1
         "#,
         )
         .bind(game_id)
@@ -552,7 +552,7 @@ impl Repository {
     ) -> Result<Entity, sqlx::error::Error> {
         Ok(sqlx::query_as::<_, Entity>(
             r#"
-        SELECT *, seat.scenario_player_id, seat.user_id  FROM entity JOIN seated_player AS seat ON entity.seat_id = seat.id WHERE game_id = ? AND id = ?
+        SELECT entity.*, seated_player.scenario_player_id, seated_player.user_id FROM entity JOIN seated_player ON entity.seat_id = seated_player.id WHERE entity.game_id = ? AND id = ?
         "#,
         )
         .bind(game_id)
@@ -569,7 +569,8 @@ impl Repository {
     ) -> Result<Option<Entity>, sqlx::error::Error> {
         Ok(sqlx::query_as::<_, Entity>(
             r#"
-        SELECT * FROM entity WHERE game_id = ? AND x = ? AND y = ?
+        SELECT entity.*, seated_player.scenario_player_id, seated_player.user_id FROM entity JOIN seated_player
+           ON entity.seat_id = seated_player.id WHERE entity.game_id = ? AND x = ? AND y = ?
         "#,
         )
         .bind(game_id)
@@ -587,7 +588,7 @@ impl Repository {
     ) -> Result<Tile, sqlx::error::Error> {
         Ok(Tile::from(sqlx::query_as::<_, MapTile>(
             r#"
-        SELECT * FROM game JOIN scenario ON game.scenario_id = scenario.id JOIN tile on tile.map_id = scenario.map_id WHERE game.id = ? AND x = ? AND y = ?
+        SELECT tile.* FROM game JOIN scenario ON game.scenario_id = scenario.id JOIN tile on tile.map_id = scenario.map_id WHERE game.id = ? AND x = ? AND y = ?
         "#,
         )
         .bind(game_id)
@@ -597,46 +598,6 @@ impl Repository {
         .await?))
     }
 
-    pub async fn move_entity(
-        &self,
-        game_id: &i64,
-        entity_id: &i64,
-        x: &i64,
-        y: &i64,
-    ) -> Result<(), sqlx::error::Error> {
-        sqlx::query(
-            r#"
-        UPDATE entity SET x = ?, y = ? WHERE game_id = ? AND id = ?
-        "#,
-        )
-        .bind(x)
-        .bind(y)
-        .bind(game_id)
-        .bind(entity_id)
-        .execute(&self.pool)
-        .await?;
-        Ok(())
-    }
-
-    pub async fn wait_entity(
-        &self,
-        game_id: &i64,
-        entity_id: &i64,
-        next_move_time: &i64,
-    ) -> Result<(), sqlx::error::Error> {
-        sqlx::query(
-            r#"
-        UPDATE entity SET next_move_time = next_move_time + ?, last_move_time = next_move_time WHERE game_id = ? AND id = ?
-        "#,
-        )
-        .bind(next_move_time)
-        .bind(game_id)
-        .bind(entity_id)
-        .execute(&self.pool)
-        .await?;
-        Ok(())
-    }
-
     pub async fn set_entity(
         &self,
         game_id: &i64,
@@ -644,12 +605,35 @@ impl Repository {
     ) -> Result<(), sqlx::error::Error> {
         sqlx::query(
             r#"
-        UPDATE entity SET next_move_time = ?, user_id = ? WHERE game_id = ? AND id = ?
+        UPDATE entity SET next_move_time = ?, last_move_time = ?, x = ?, y = ? WHERE game_id = ? AND id = ?
         "#,
         )
-        .bind(game_id)
         .bind(entity.next_move_time)
-        .bind(entity.user_id.clone())
+        .bind(entity.last_move_time)
+        .bind(entity.x)
+        .bind(entity.y)
+        .bind(game_id)
+        .bind(entity.id)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    pub async fn transfer_entity(
+        &self,
+        game_id: &i64,
+        entity_id: &i64,
+        user_to: &str,
+    ) -> Result<(), sqlx::error::Error> {
+        // FIXME
+        sqlx::query(
+            r#"
+        UPDATE entity SET user_id = ? WHERE game_id = ? AND entity_id = ?
+        "#,
+        )
+        .bind(user_to)
+        .bind(game_id)
+        .bind(entity_id)
         .execute(&self.pool)
         .await?;
         Ok(())
@@ -675,7 +659,7 @@ impl Repository {
         &self,
         game_id: &i64,
     ) -> Result<Vec<EntityWithResources>, sqlx::error::Error> {
-        let entities = sqlx::query_as::<_, Entity>(r#"SELECT * FROM entity WHERE game_id = ?"#)
+        let entities = sqlx::query_as::<_, Entity>(r#"SELECT entity.*, seated_player.scenario_player_id, seated_player.user_id FROM entity JOIN seated_player ON entity.seat_id = seated_player.id WHERE entity.game_id = ?"#)
             .bind(game_id)
             .fetch_all(&self.pool)
             .await?;

@@ -182,7 +182,6 @@ INSERT INTO
     entity (
         id,
         game_id,
-        scenario_player_id,
         seat_id,
         x,
         y,
@@ -195,7 +194,6 @@ VALUES
         1,
         1,
         1,
-        1,
         -2,
         0,
         0,
@@ -205,7 +203,6 @@ VALUES
     (
         2,
         1,
-        2,
         2,
         2,
         0,

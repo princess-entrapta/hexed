@@ -49,7 +49,7 @@ impl ToString for ServiceError {
 }
 
 pub async fn get_gamestate(repo: Repository, game_id: i64) -> Result<Gamestate, ServiceError> {
-    let to_play = repo.get_trait_entity(&game_id).await?;
+    let mut to_play = repo.get_trait_entity(&game_id).await?;
     let entities = repo.get_game_entities(&game_id).await?;
     let blocking_entities = entities
         .clone()
@@ -100,7 +100,7 @@ pub async fn get_gamestate(repo: Repository, game_id: i64) -> Result<Gamestate, 
                 name: name.clone(),
                 costs: Ability {
                     name: name.clone(),
-                    caster: to_play.clone(),
+                    caster: &mut to_play,
                 }
                 .get_costs(),
                 targets: los_tiles
@@ -119,7 +119,7 @@ pub async fn get_gamestate(repo: Repository, game_id: i64) -> Result<Gamestate, 
                             is_valid_target(
                                 &Ability {
                                     name: name.clone(),
-                                    caster: to_play.clone(),
+                                    caster: &mut to_play,
                                 },
                                 &tile,
                                 &target_entity,
@@ -149,15 +149,11 @@ pub async fn transfer_entity(
     user_from: String,
     user_to: String,
 ) -> Result<(), ServiceError> {
-    let mut entity = repo.get_trait_entity(&game_id).await?;
-    let seated_player = repo
-        .get_seated_player(&game_id, &entity.scenario_player_id)
-        .await?;
-    if seated_player != user_from {
+    let entity = repo.get_trait_entity(&game_id).await?;
+    if entity.user_id != user_from {
         return Err(ServiceError::Unauthorized);
     }
-    entity.user_id = user_to;
-    repo.set_entity(&game_id, &entity).await?;
+    repo.transfer_entity(&game_id, &entity.id, &user_to).await?;
     Ok(())
 }
 
@@ -172,16 +168,16 @@ pub async fn deploy_entities(
     // Check if scenario_player_id already deployed
     // Check points
     // Check location
+    let seat_id = repo
+        .add_seat(&user_id, &game_id, &entites.scenario_player_id)
+        .await?;
     for ent in entites.entities {
-        let entity = repo
-            .add_entity_for_player(&ent, &game_id, &user_id, &entites.scenario_player_id)
-            .await?;
+        let entity = repo.add_entity_for_player(&ent, &game_id, &seat_id).await?;
         for resource in ent.get_class().get_resource_list().into_iter() {
             repo.add_resource(&entity, &game_id, &resource).await?;
         }
     }
-    repo.add_seat(&user_id, &game_id, &entites.scenario_player_id)
-        .await?;
+
     if repo.count_seats_for_game(&game_id).await?
         == repo.count_scenario_players_for_game(&game_id).await?
     {
@@ -526,20 +522,17 @@ pub async fn use_ability(
     ability_name: AbilityName,
     target: Coords,
 ) -> Result<(), ServiceError> {
-    let entity = repo.get_trait_entity(&game_id).await?;
-    let seated_player = repo
-        .get_seated_player(&game_id, &entity.scenario_player_id)
-        .await?;
-    if seated_player != user_id {
+    let mut entity = repo.get_trait_entity(&game_id).await?;
+    if entity.user_id != user_id {
         return Err(ServiceError::Unauthorized);
     }
-
-    let ability = Ability {
+    let entity_id = entity.id;
+    let target_entity = repo.get_entity_at(&game_id, &target.x, &target.y).await?;
+    let mut ability = Ability {
         name: ability_name.clone(),
-        caster: entity.clone(),
+        caster: &mut entity,
     };
 
-    let target_entity = repo.get_entity_at(&game_id, &target.x, &target.y).await?;
     let game_entities = repo.get_game_entities(&game_id).await?;
     let blocking_entities: Vec<Entity> = game_entities
         .clone()
@@ -559,7 +552,7 @@ pub async fn use_ability(
     let costs = ability.get_costs();
     for (resource_name, cost) in costs.clone() {
         let resource = repo
-            .get_resource(&game_id, &entity.id, resource_name.as_str())
+            .get_resource(&game_id, &entity_id, resource_name.as_str())
             .await?;
         if resource.resource_current < cost {
             return Err(ServiceError::BadRequest(format!(
@@ -568,32 +561,33 @@ pub async fn use_ability(
             )));
         }
     }
+    let delay = ability.get_delay(&repo, &game_id, target.clone()).await;
     ability
         .apply(&repo, game_id, target.clone(), target_entity.clone())
         .await?;
     for (resource_name, cost) in costs {
         let mut resource = repo
-            .get_resource(&game_id, &entity.id, resource_name.as_str())
+            .get_resource(&game_id, &entity_id, resource_name.as_str())
             .await?;
         resource.resource_current -= cost;
         repo.set_resource(&resource).await?;
     }
+    ability.caster.last_move_time = ability.caster.next_move_time;
+    ability.caster.next_move_time += delay;
+    tracing::info!("{:?}", ability.caster);
+
+    let new_entity: Entity = repo.get_trait_entity(&game_id).await?;
+    let elapsed_time = new_entity.next_move_time - ability.caster.last_move_time;
+
     repo.log_action(&ActionLog {
         game_id,
-        turn_time: entity.next_move_time,
-        caster: entity.id,
+        turn_time: ability.caster.last_move_time,
+        caster: entity_id,
         target_entity: target_entity.map(|e| e.id),
         action_name: ability_name.to_string(),
     })
     .await?;
-    repo.wait_entity(
-        &game_id,
-        &entity.id,
-        &ability.get_delay(&repo, &game_id, &entity, target).await,
-    )
-    .await?;
-    let new_entity = repo.get_trait_entity(&game_id).await?;
-    let elapsed_time = new_entity.next_move_time - entity.next_move_time;
+    repo.set_entity(&game_id, &ability.caster).await?;
     repo.increment_resources(&game_id, &elapsed_time).await?;
     let _res = events
         .send_event(get_gamestate(repo, game_id).await?, new_entity.user_id)

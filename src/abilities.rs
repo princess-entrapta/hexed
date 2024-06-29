@@ -50,12 +50,12 @@ pub enum TargetType {
     Selfcast,
 }
 
-pub struct Ability {
+pub struct Ability<'a> {
     pub name: AbilityName,
-    pub caster: Entity,
+    pub caster: &'a mut Entity,
 }
 
-impl Ability {
+impl Ability<'_> {
     pub async fn _take_damage(
         &self,
         repo: &Repository,
@@ -78,7 +78,7 @@ impl Ability {
     }
 
     pub async fn apply(
-        &self,
+        &mut self,
         repo: &Repository,
         game_id: i64,
         target: Coords,
@@ -95,11 +95,10 @@ impl Ability {
                 )
                 .await?;
                 target_entity.next_move_time += 12;
-                repo.set_entity(&game_id, &target_entity).await?;
             }
             AbilityName::Move => {
-                repo.move_entity(&game_id, &self.caster.id, &target.x, &target.y)
-                    .await?;
+                self.caster.x = target.x;
+                self.caster.y = target.y;
                 return Ok(());
             }
             AbilityName::Attack => {
@@ -121,23 +120,16 @@ impl Ability {
         0.0
     }
 
-    pub async fn get_delay(
-        &self,
-        repo: &Repository,
-        game_id: &i64,
-        caster: &Entity,
-        target: Coords,
-    ) -> i64 {
+    pub async fn get_delay(&self, repo: &Repository, game_id: &i64, target: Coords) -> i64 {
         match self.name {
             AbilityName::ShieldBash | AbilityName::Attack => {
-                let discount = match caster.get_class() {
+                let discount = match self.caster.get_class() {
                     CharClass::Archer => {
                         let last_move = repo
                             .get_entity_last_ability_name(&game_id, &self.caster.id)
-                            .await
-                            .unwrap();
+                            .await;
                         match last_move {
-                            AbilityName::Attack => 6,
+                            Ok(AbilityName::Move) => 6,
                             _ => 0,
                         }
                     }
@@ -146,14 +138,13 @@ impl Ability {
                 20 - discount
             }
             AbilityName::Move => {
-                let discount = match caster.get_class() {
+                let discount = match self.caster.get_class() {
                     CharClass::Archer => {
                         let last_move = repo
                             .get_entity_last_ability_name(&game_id, &self.caster.id)
-                            .await
-                            .unwrap();
+                            .await;
                         match last_move {
-                            AbilityName::Attack => 6,
+                            Ok(AbilityName::Attack) => 6,
                             _ => 0,
                         }
                     }
