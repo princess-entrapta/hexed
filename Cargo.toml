@@ -1,0 +1,40 @@
+workspace = {}
+[package]
+name = "rust-game"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+argon2 = "0.5.3"
+axum = { version = "0.7.4", features = ["http2", "multipart", "ws"] }
+axum-extra = { version = "0.9.3", features = ["typed-header"] }
+dashmap = "5.5.3"
+dashmap-cache = { version = "0.1.7", features = ["tokio"] }
+exec = "0.3.1"
+futures = "0.3.30"
+handlebars = "5.1.0"
+markdown = "0.3.0"
+password-hash = { version = "0.5.0", features = ["getrandom"] }
+reqwest = { version = "0.12.5", features = ["cookies"] }
+serde = "1.0.197"
+serde_json = "1.0.114"
+serde_yaml = "0.9.32"
+slug = "0.1.5"
+sqlx = { version = "0.7.3", features = ["uuid", "chrono", "sqlite", "runtime-tokio", "migrate"] }
+tokio = { version = "1.36.0", features = ["rt-multi-thread"] }
+tokio-util = "0.7.10"
+tower-http = { version = "0.5.2", features = ["trace"] }
+tower-sessions = "0.11.0"
+tracing = "0.1.40"
+tracing-subscriber = {version="0.3.18", features=["json"]} 
+websocket = "0.27.1"
+
+[[bin]]
+name = "db-init"
+path = "src/db_init.rs"
+
+[[bin]]
+name = "bot"
+path = "src/bot.rs"

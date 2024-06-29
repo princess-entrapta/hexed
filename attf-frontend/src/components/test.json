@@ -1,0 +1,449 @@
+{
+    "id": 2,
+    "playing": 6,
+    "entities": [
+        {
+            "entity": {
+                "id": 3,
+                "scenario_player_id": 3,
+                "last_move_time": 124,
+                "next_move_time": 136,
+                "game_class": "Warrior",
+                "x": -2,
+                "y": -2
+            },
+            "resources": [
+                {
+                    "entity_id": 3,
+                    "game_id": 2,
+                    "resource_name": "hp",
+                    "resource_max": 100.0,
+                    "resource_current": 100.0,
+                    "resource_per_turn": 0.5
+                },
+                {
+                    "entity_id": 3,
+                    "game_id": 2,
+                    "resource_name": "ShieldBash",
+                    "resource_max": 60.0,
+                    "resource_current": 60.0,
+                    "resource_per_turn": 1.0
+                }
+            ]
+        },
+        {
+            "entity": {
+                "id": 4,
+                "scenario_player_id": 3,
+                "last_move_time": 128,
+                "next_move_time": 148,
+                "game_class": "Warrior",
+                "x": 3,
+                "y": -1
+            },
+            "resources": [
+                {
+                    "entity_id": 4,
+                    "game_id": 2,
+                    "resource_name": "hp",
+                    "resource_max": 100.0,
+                    "resource_current": 100.0,
+                    "resource_per_turn": 0.5
+                },
+                {
+                    "entity_id": 4,
+                    "game_id": 2,
+                    "resource_name": "ShieldBash",
+                    "resource_max": 60.0,
+                    "resource_current": 60.0,
+                    "resource_per_turn": 1.0
+                }
+            ]
+        },
+        {
+            "entity": {
+                "id": 5,
+                "scenario_player_id": 3,
+                "last_move_time": 124,
+                "next_move_time": 136,
+                "game_class": "Warrior",
+                "x": 4,
+                "y": 0
+            },
+            "resources": [
+                {
+                    "entity_id": 5,
+                    "game_id": 2,
+                    "resource_name": "hp",
+                    "resource_max": 100.0,
+                    "resource_current": 100.0,
+                    "resource_per_turn": 0.5
+                },
+                {
+                    "entity_id": 5,
+                    "game_id": 2,
+                    "resource_name": "ShieldBash",
+                    "resource_max": 60.0,
+                    "resource_current": 60.0,
+                    "resource_per_turn": 1.0
+                }
+            ]
+        },
+        {
+            "entity": {
+                "id": 6,
+                "scenario_player_id": 3,
+                "last_move_time": 120,
+                "next_move_time": 132,
+                "game_class": "Warrior",
+                "x": -3,
+                "y": 1
+            },
+            "resources": [
+                {
+                    "entity_id": 6,
+                    "game_id": 2,
+                    "resource_name": "hp",
+                    "resource_max": 100.0,
+                    "resource_current": 100.0,
+                    "resource_per_turn": 0.5
+                },
+                {
+                    "entity_id": 6,
+                    "game_id": 2,
+                    "resource_name": "ShieldBash",
+                    "resource_max": 60.0,
+                    "resource_current": 60.0,
+                    "resource_per_turn": 1.0
+                }
+            ]
+        },
+        {
+            "entity": {
+                "id": 7,
+                "scenario_player_id": 4,
+                "last_move_time": 128,
+                "next_move_time": 140,
+                "game_class": "Warrior",
+                "x": 1,
+                "y": 1
+            },
+            "resources": [
+                {
+                    "entity_id": 7,
+                    "game_id": 2,
+                    "resource_name": "hp",
+                    "resource_max": 100.0,
+                    "resource_current": 100.0,
+                    "resource_per_turn": 0.5
+                },
+                {
+                    "entity_id": 7,
+                    "game_id": 2,
+                    "resource_name": "ShieldBash",
+                    "resource_max": 60.0,
+                    "resource_current": 60.0,
+                    "resource_per_turn": 1.0
+                }
+            ]
+        },
+        {
+            "entity": {
+                "id": 8,
+                "scenario_player_id": 4,
+                "last_move_time": 128,
+                "next_move_time": 140,
+                "game_class": "Warrior",
+                "x": -2,
+                "y": 0
+            },
+            "resources": [
+                {
+                    "entity_id": 8,
+                    "game_id": 2,
+                    "resource_name": "hp",
+                    "resource_max": 100.0,
+                    "resource_current": 100.0,
+                    "resource_per_turn": 0.5
+                },
+                {
+                    "entity_id": 8,
+                    "game_id": 2,
+                    "resource_name": "ShieldBash",
+                    "resource_max": 60.0,
+                    "resource_current": 60.0,
+                    "resource_per_turn": 1.0
+                }
+            ]
+        },
+        {
+            "entity": {
+                "id": 10,
+                "scenario_player_id": 4,
+                "last_move_time": 126,
+                "next_move_time": 138,
+                "game_class": "Warrior",
+                "x": 1,
+                "y": 3
+            },
+            "resources": [
+                {
+                    "entity_id": 10,
+                    "game_id": 2,
+                    "resource_name": "hp",
+                    "resource_max": 100.0,
+                    "resource_current": 100.0,
+                    "resource_per_turn": 0.5
+                },
+                {
+                    "entity_id": 10,
+                    "game_id": 2,
+                    "resource_name": "ShieldBash",
+                    "resource_max": 60.0,
+                    "resource_current": 60.0,
+                    "resource_per_turn": 1.0
+                }
+            ]
+        }
+    ],
+    "abilities": [
+        {
+            "name": "Move",
+            "targets": [
+                {
+                    "x": 0,
+                    "y": 2
+                },
+                {
+                    "x": -1,
+                    "y": 1
+                },
+                {
+                    "x": -2,
+                    "y": 2
+                },
+                {
+                    "x": -4,
+                    "y": 0
+                },
+                {
+                    "x": -1,
+                    "y": 3
+                },
+                {
+                    "x": 0,
+                    "y": 0
+                }
+            ],
+            "costs": []
+        },
+        {
+            "name": "Attack",
+            "targets": [
+                {
+                    "x": -2,
+                    "y": 0
+                }
+            ],
+            "costs": []
+        },
+        {
+            "name": "Wait",
+            "targets": [
+                {
+                    "x": -3,
+                    "y": 1
+                }
+            ],
+            "costs": []
+        },
+        {
+            "name": "ShieldBash",
+            "targets": [
+                {
+                    "x": -2,
+                    "y": 0
+                }
+            ],
+            "costs": [
+                [
+                    "ShieldBash",
+                    60.0
+                ]
+            ]
+        }
+    ],
+    "visible_tiles": [
+        {
+            "x": -1,
+            "y": 3,
+            "tile_type": "Floor"
+        },
+        {
+            "x": -2,
+            "y": 2,
+            "tile_type": "Floor"
+        },
+        {
+            "x": -2,
+            "y": 0,
+            "tile_type": "Floor"
+        },
+        {
+            "x": 1,
+            "y": 1,
+            "tile_type": "Floor"
+        },
+        {
+            "x": 0,
+            "y": 2,
+            "tile_type": "Floor"
+        },
+        {
+            "x": -3,
+            "y": 1,
+            "tile_type": "Floor"
+        },
+        {
+            "x": -1,
+            "y": 1,
+            "tile_type": "Floor"
+        },
+        {
+            "x": 1,
+            "y": 3,
+            "tile_type": "Floor"
+        },
+        {
+            "x": 3,
+            "y": -1,
+            "tile_type": "Floor"
+        },
+        {
+            "x": 0,
+            "y": 0,
+            "tile_type": "Floor"
+        },
+        {
+            "x": -4,
+            "y": 0,
+            "tile_type": "Floor"
+        },
+        {
+            "x": 2,
+            "y": 0,
+            "tile_type": "Floor"
+        },
+        {
+            "x": 2,
+            "y": 2,
+            "tile_type": "Floor"
+        }
+    ],
+    "allied_vision": [
+        {
+            "x": 0,
+            "y": -2,
+            "tile_type": "Floor"
+        },
+        {
+            "x": 4,
+            "y": 0,
+            "tile_type": "Floor"
+        },
+        {
+            "x": 3,
+            "y": 1,
+            "tile_type": "Floor"
+        },
+        {
+            "x": 1,
+            "y": -3,
+            "tile_type": "Floor"
+        },
+        {
+            "x": 2,
+            "y": -2,
+            "tile_type": "Floor"
+        },
+        {
+            "x": -1,
+            "y": -1,
+            "tile_type": "Floor"
+        },
+        {
+            "x": -2,
+            "y": 0,
+            "tile_type": "Floor"
+        },
+        {
+            "x": -1,
+            "y": -3,
+            "tile_type": "Floor"
+        },
+        {
+            "x": 1,
+            "y": 1,
+            "tile_type": "Floor"
+        },
+        {
+            "x": -3,
+            "y": -1,
+            "tile_type": "Floor"
+        },
+        {
+            "x": 1,
+            "y": -1,
+            "tile_type": "Floor"
+        },
+        {
+            "x": -2,
+            "y": -2,
+            "tile_type": "Floor"
+        }
+    ],
+    "logs": [
+        {
+            "turn_time": 120,
+            "caster": 6,
+            "target_entity": null,
+            "action_name": "Move"
+        },
+        {
+            "turn_time": 124,
+            "caster": 3,
+            "target_entity": null,
+            "action_name": "Move"
+        },
+        {
+            "turn_time": 124,
+            "caster": 5,
+            "target_entity": null,
+            "action_name": "Move"
+        },
+        {
+            "turn_time": 126,
+            "caster": 10,
+            "target_entity": null,
+            "action_name": "Move"
+        },
+        {
+            "turn_time": 128,
+            "caster": 4,
+            "target_entity": null,
+            "action_name": "Move"
+        },
+        {
+            "turn_time": 128,
+            "caster": 7,
+            "target_entity": null,
+            "action_name": "Move"
+        },
+        {
+            "turn_time": 128,
+            "caster": 8,
+            "target_entity": null,
+            "action_name": "Move"
+        }
+    ]
+}
