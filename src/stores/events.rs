@@ -6,13 +6,18 @@ use crate::{schemas::Gamestate, services::ServiceError};
 
 #[derive(Clone)]
 pub struct Events {
-    inner: Arc<DashMap<(i64, String), Vec<Sender<Gamestate>>>>,
+    inner: Arc<DashMap<(uuid::Uuid, String), Vec<Sender<Gamestate>>>>,
 }
 
 impl Events {
-    pub async fn send_event(&self, gs: Gamestate, user_id: String) -> Result<(), ServiceError> {
+    pub async fn send_event(
+        &self,
+        gs: Gamestate,
+        game_id: uuid::Uuid,
+        user_id: String,
+    ) -> Result<(), ServiceError> {
         tracing::info!("send_event");
-        match self.inner.get_mut(&(gs.id, user_id.clone())) {
+        match self.inner.get_mut(&(game_id, user_id.clone())) {
             None => Err(ServiceError::QueueError(
                 "Unable to queue event".to_string(),
             )),
@@ -30,7 +35,7 @@ impl Events {
 
     pub async fn register(
         &self,
-        game_id: i64,
+        game_id: uuid::Uuid,
         user_id: String,
         sender: Sender<Gamestate>,
     ) -> Result<(), ()> {

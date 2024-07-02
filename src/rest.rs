@@ -22,20 +22,19 @@ pub async fn login(
     session: Session,
     Form(fdata): Form<LoginForm>,
 ) -> impl IntoResponse {
-    match repo
-        .db
-        .check_user(fdata.username.as_str(), fdata.password.as_str())
-        .await
-    {
-        Ok(roles) => {
-            session.insert("roles", &roles).await.unwrap();
-            session
-                .insert("user", fdata.username.as_str())
-                .await
-                .unwrap();
-            return Redirect::to("/play").into_response();
+    match repo.db.load_user(fdata.username.as_str()).await {
+        Ok(user_data) => {
+            if fdata.verify(&user_data).is_ok() {
+                session
+                    .insert("roles", &user_data.roles.clone())
+                    .await
+                    .unwrap();
+                session.insert("user", user_data.id).await.unwrap();
+                return Redirect::to("/play").into_response();
+            }
+            ServiceError::Unauthorized.into_response()
         }
-        Err(error) => return error.into_response(),
+        Err(error) => error.into_response(),
     }
 }
 
@@ -50,7 +49,7 @@ impl IntoResponse for ServiceError {
                 (StatusCode::NOT_FOUND, "Not found".to_owned()).into_response()
             }
             services::ServiceError::BadRequest(str) => (StatusCode::NOT_FOUND, str).into_response(),
-            services::ServiceError::DbError(_) | services::ServiceError::QueueError(_) => {
+            services::ServiceError::StorageError(_) | services::ServiceError::QueueError(_) => {
                 tracing::info!("{}", self.to_string());
                 (
                     StatusCode::INTERNAL_SERVER_ERROR,
@@ -104,10 +103,10 @@ pub async fn get_active_game(
 
 pub async fn new_game(
     State(repo): State<Repositories>,
-    user: AuthenticatedUser,
-    axum::extract::Json(scenario_id): axum::extract::Json<i64>,
+    _user: AuthenticatedUser,
+    axum::extract::Json(_scenario_id): axum::extract::Json<i64>,
 ) -> impl IntoResponse {
-    let result = services::new_game(repo.db, user.user_id, scenario_id).await;
+    let result = services::new_game(repo.db).await;
     match result {
         Ok(value) => (StatusCode::OK, Json(value)).into_response(),
         Err(error) => error.into_response(),
@@ -117,7 +116,7 @@ pub async fn new_game(
 pub async fn deploy_entities(
     State(repo): State<Repositories>,
     user: AuthenticatedUser,
-    Path(game_id): Path<i64>,
+    Path(game_id): Path<uuid::Uuid>,
     axum::extract::Json(deploy_entities): axum::extract::Json<DeployEntitiesRequest>,
 ) -> impl IntoResponse {
     let result =
@@ -129,27 +128,15 @@ pub async fn deploy_entities(
     }
 }
 
-pub async fn get_scenarios(
-    State(repo): State<Repositories>,
-    _user: AuthenticatedUser,
-) -> impl IntoResponse {
-    let result = services::get_scenarios(repo.db).await;
-    match result {
-        Ok(value) => (StatusCode::OK, Json(value)).into_response(),
-        Err(error) => error.into_response(),
-    }
+pub async fn get_scenarios(_user: AuthenticatedUser) -> impl IntoResponse {
+    (StatusCode::OK, Json(services::get_scenarios())).into_response()
 }
 
 pub async fn get_scenario_players(
-    State(repo): State<Repositories>,
     _user: AuthenticatedUser,
-    Path(scenario_id): Path<i64>,
+    Path(_scenario_id): Path<i64>,
 ) -> impl IntoResponse {
-    let result = services::get_scenario_players(repo.db, scenario_id).await;
-    match result {
-        Ok(value) => (StatusCode::OK, Json(value)).into_response(),
-        Err(error) => error.into_response(),
-    }
+    (StatusCode::OK, Json(services::get_scenario_players())).into_response()
 }
 
 pub async fn get_available_scenario_players(
@@ -167,7 +154,7 @@ pub async fn get_available_scenario_players(
 pub async fn transfer_entity(
     State(repo): State<Repositories>,
     user_from: AuthenticatedUser,
-    Path(game_id): Path<i64>,
+    Path(game_id): Path<uuid::Uuid>,
     Json(user_to): Json<String>,
 ) -> impl IntoResponse {
     let result = services::transfer_entity(repo.db, game_id, user_from.user_id, user_to).await;
@@ -180,7 +167,7 @@ pub async fn transfer_entity(
 pub async fn use_ability(
     State(repo): State<Repositories>,
     user: AuthenticatedUser,
-    Path((game_id, abilty_name)): Path<(i64, AbilityName)>,
+    Path((game_id, abilty_name)): Path<(uuid::Uuid, AbilityName)>,
     axum::extract::Json(target): axum::extract::Json<Coords>,
 ) -> impl IntoResponse {
     let result = services::use_ability(
@@ -202,7 +189,7 @@ pub async fn ws_handler(
     State(repo): State<Repositories>,
     ws: WebSocketUpgrade,
     user: AuthenticatedUser,
-    Path(game_id): Path<i64>,
+    Path(game_id): Path<uuid::Uuid>,
 ) -> impl IntoResponse {
     // finalize the upgrade process by returning upgrade callback.
     // we can customize the callback by sending additional info such as address.
@@ -215,7 +202,7 @@ async fn handle_socket(
     user: AuthenticatedUser,
     events: Events,
     db: Repository,
-    game_id: i64,
+    game_id: uuid::Uuid,
 ) {
     let (sender, receiver) = mpsc::channel::<Gamestate>();
     let register = events.register(game_id, user.user_id.clone(), sender).await;
@@ -223,9 +210,14 @@ async fn handle_socket(
         tracing::info!("error: {:?}", register);
         return;
     }
-    let _res = tick(events.clone(), db, game_id).await;
-    if _res.is_err() {
-        tracing::info!("error {:?}", _res.unwrap_err());
+    match db.load_game(&game_id).await {
+        Ok(game) => {
+            let _res = tick(events.clone(), &game).await;
+            if _res.is_err() {
+                tracing::info!("error {:?}", _res.unwrap_err());
+            }
+        }
+        Err(_) => return,
     }
 
     let (sock_sender, sock_receiver) = socket.split();

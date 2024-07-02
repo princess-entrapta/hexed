@@ -19,9 +19,6 @@ function onmessage(event: any, ws: WebSocket) {
       grid.curX = entity.x
       grid.curY = entity.y
     }
-    for (let idx in resources) {
-      ent_obj.resources[resources[idx].resource_name] = resources[idx]
-    }
     grid.entities[entity.x][entity.y] = ent_obj
     grid.entities_by_id[entity.id] = ent_obj
   }

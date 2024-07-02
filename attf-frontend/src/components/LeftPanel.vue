@@ -22,13 +22,13 @@ export default {
 
         <span v-for="log in grid.actionLog">
             <Creature v-if="log.caster != null" :game_class="grid.entities_by_id[log.caster].game_class"
-                :hp="grid.entities_by_id[log.caster].resources.hp.resource_current"
-                :hp_max="grid.entities_by_id[log.caster].resources.hp.resource_max"
+                :hp="grid.entities_by_id[log.caster].resources.hp.current"
+                :hp_max="grid.entities_by_id[log.caster].resources.hp.max"
                 :team="grid.entities_by_id[log.caster].owner == grid.user ? 'allied' : 'ennemy'"></Creature>
             {{ log.action_name }}
             <Creature v-if="log.target_entity != null" :game_class="grid.entities_by_id[log.target_entity].game_class"
-                :hp="grid.entities_by_id[log.target_entity].resources.hp.resource_current"
-                :hp_max="grid.entities_by_id[log.target_entity].resources.hp.resource_max"
+                :hp="grid.entities_by_id[log.target_entity].resources.hp.current"
+                :hp_max="grid.entities_by_id[log.target_entity].resources.hp.max"
                 :team="grid.entities_by_id[log.target_entity].owner == grid.user ? 'allied' : 'ennemy'"></Creature>
         </span>
     </div>

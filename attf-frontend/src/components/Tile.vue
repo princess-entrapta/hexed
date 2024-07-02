@@ -98,8 +98,8 @@ export default {
         :style="'left: ' + (parseInt(x) * 36 + 200) + 'px;top: ' + (parseInt(y) * 62 + 200) + 'px; '">
         <div class="avatar tile">
             <Creature v-if="entity" :game_class="entity.game_class"
-                :hp="entity.resources ? entity.resources.hp.resource_current : 100"
-                :hp_max="entity.resources ? entity.resources.hp.resource_max : 100"
+                :hp="entity.resources ? entity.resources.hp.current : 100"
+                :hp_max="entity.resources ? entity.resources.hp.max : 100"
                 :team="isCurrent ? 'playing' : (isEnemy ? 'ennemy' : 'allied')" />
         </div>
         <div class="tile">

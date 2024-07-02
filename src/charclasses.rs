@@ -1,20 +1,14 @@
 use core::str::FromStr;
 
-use crate::abilities::AbilityName;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+use crate::{abilities::AbilityName, schemas::Resource};
+
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Serialize, Deserialize)]
 pub enum CharClass {
     Warrior,
     Archer,
     Mage,
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub struct ResourceStat {
-    pub resource_name: String,
-    pub resource_max: f64,
-    pub resource_current: f64,
-    pub resource_per_turn: f64,
 }
 
 impl FromStr for CharClass {
@@ -36,32 +30,36 @@ impl CharClass {
             Self::Mage => 3.0,
         }
     }
-    pub fn get_attack_damage(&self) -> f64 {
+    pub fn get_attack_damage(&self) -> i64 {
         match self {
-            Self::Warrior => 14.0,
-            Self::Archer => 12.0,
-            Self::Mage => 10.0,
+            Self::Warrior => 140,
+            Self::Archer => 120,
+            Self::Mage => 100,
         }
     }
     pub fn get_attack_time(&self) -> i64 {
         return 20;
     }
 
-    pub fn get_resource_list(&self) -> Vec<ResourceStat> {
-        let mut resources = vec![ResourceStat {
-            resource_name: "hp".to_string(),
-            resource_max: 100.0,
-            resource_current: 100.0,
-            resource_per_turn: 0.5,
-        }];
+    pub fn get_resource_list(&self) -> Vec<(String, Resource)> {
+        let mut resources = vec![(
+            "hp".to_string(),
+            Resource {
+                max: 1000,
+                current: 1000,
+                per_turn: 5,
+            },
+        )];
 
         match self {
-            CharClass::Warrior => resources.push(ResourceStat {
-                resource_name: "ShieldBash".to_string(),
-                resource_max: 60.0,
-                resource_current: 60.0,
-                resource_per_turn: 1.0,
-            }),
+            CharClass::Warrior => resources.push((
+                "ShieldBash".to_string(),
+                Resource {
+                    max: 60,
+                    current: 60,
+                    per_turn: 1,
+                },
+            )),
             _ => {}
         }
         resources
