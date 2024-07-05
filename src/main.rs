@@ -43,6 +43,7 @@ async fn main() {
 
     let app = Router::new()
         .route("/login", post(rest::login))
+        .route("/create_user", post(rest::create_user))
         .route("/logout", post(rest::logout))
         .route("/game", get(rest::get_active_game))
         .route("/game", post(rest::new_game))

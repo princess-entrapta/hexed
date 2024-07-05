@@ -66,32 +66,44 @@ pub fn get_gamestate(game: &Game) -> Result<Gamestate, ServiceError> {
     let to_play = game.get_trait_entity()?;
     let allied_entities = game.allied_entities(to_play.scenario_player_index);
     let blocking_entities = game.blocking_entities(to_play.scenario_player_index);
-
     let (los_tiles, allied_vision) = get_los_map(
         &to_play.coords,
         &allied_entities,
         &game.map,
         &blocking_entities,
     );
-    let visible_entities: HashMap<Coords, Vec<EntityResponse>, RandomState> =
-        HashMap::from_iter(game.entities.clone().into_iter().map(|(coords, vec_e)| {
-            (
-                coords,
-                vec_e
-                    .into_iter()
-                    .filter(|e| {
-                        los_tiles.contains(&e.coords)
-                            || e.scenario_player_index == to_play.scenario_player_index
-                    })
-                    .map(|e| {
-                        EntityResponse::from_entity(e.clone(), to_play, &game.entities, &los_tiles)
-                    })
-                    .collect::<Vec<_>>(),
-            )
-        }));
+    tracing::info!("game {:?}", game);
+    let visible_entities: HashMap<Coords, Vec<EntityResponse>, RandomState> = HashMap::from_iter(
+        game.entities
+            .clone()
+            .into_iter()
+            .map(|(coords, vec_e)| {
+                (
+                    coords,
+                    vec_e
+                        .into_iter()
+                        .filter(|e| {
+                            allied_vision.contains(&e.coords)
+                                || los_tiles.contains(&e.coords)
+                                || e.scenario_player_index == to_play.scenario_player_index
+                        })
+                        .map(|e| {
+                            EntityResponse::from_entity(
+                                e.clone(),
+                                to_play,
+                                &game.entities,
+                                &los_tiles,
+                            )
+                        })
+                        .collect::<Vec<_>>(),
+                )
+            })
+            .filter(|(_coords, vec_e)| vec_e.len() != 0),
+    );
     Ok(Gamestate {
         id: game.id,
         entities: visible_entities,
+        playing: to_play.id,
         abilities: to_play
             .game_class
             .get_ability_list()
@@ -179,6 +191,7 @@ pub async fn deploy_entities(
             coords.clone(),
             vec![Entity {
                 user_id: user_id.clone(),
+                id: uuid::Uuid::new_v4(),
                 coords: coords,
                 resources: HashMap::from_iter(class.get_resource_list()),
                 scenario_player_index: req.scenario_player_id,
@@ -192,7 +205,7 @@ pub async fn deploy_entities(
     if count_indices >= 1 {
         let mut game_list = repo.load_game_list().await?;
         game_list.get_mut(&game_id).unwrap().status = GameStatus::Running;
-        repo.save_game_list(game_list);
+        repo.save_game_list(game_list).await?;
         let _res = tick(events, &game).await;
     };
     repo.save_game(&game).await?;
@@ -422,16 +435,39 @@ pub fn get_scenario_players() -> Vec<ScenarioPlayer> {
 
 pub async fn get_available_scenario_players(
     repo: Repository,
-    game_id: i64,
+    game_id: uuid::Uuid,
 ) -> Result<Vec<ScenarioPlayer>, ServiceError> {
-    todo!();
-    Err(ServiceError::NotFound)
+    let allowed_classes = vec![
+        AvailableClass {
+            player_points: 25,
+            game_class: CharClass::Archer,
+        },
+        AvailableClass {
+            player_points: 25,
+            game_class: CharClass::Warrior,
+        },
+    ];
+    Ok(vec![
+        ScenarioPlayer {
+            player_points: 100,
+            drop_tiles: vec![Coords { x: -2, y: 0 }],
+            allowed_clases: allowed_classes.clone(),
+        },
+        ScenarioPlayer {
+            player_points: 100,
+            drop_tiles: vec![Coords { x: 2, y: 0 }],
+            allowed_clases: allowed_classes,
+        },
+    ])
 }
 
 pub async fn new_game(repo: Repository) -> Result<uuid::Uuid, ServiceError> {
     let game = Game::new();
     repo.save_game(&game).await?;
-    let mut game_list = repo.load_game_list().await?;
+    let mut game_list = match repo.load_game_list().await {
+        Err(_) => HashMap::new(),
+        Ok(list) => list,
+    };
     game_list.insert(
         game.id,
         GameRef {
@@ -561,14 +597,14 @@ pub async fn use_ability(
     let mut mut_game = game.clone();
     mut_game.apply_ability(&ability, &target);
 
-    tracing::info!("{:?}", ability.caster);
-
     let new_entity = mut_game.get_trait_entity()?;
     let elapsed_time = new_entity.next_move_time - current_time;
+    tracing::info!("elapsed {:?}", elapsed_time);
+
     mut_game.increment_resources(elapsed_time);
-    let _res = events
-        .send_event(get_gamestate(&game)?, game_id, user_id)
-        .await;
-    repo.save_game(&game).await?;
+    let gamestate = get_gamestate(&mut_game)?;
+    tracing::info!("{:?}", gamestate);
+    let _res = events.send_event(gamestate, game_id, user_id).await;
+    repo.save_game(&mut_game).await?;
     Ok(())
 }

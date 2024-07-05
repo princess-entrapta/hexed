@@ -1,9 +1,10 @@
 use std::{
     cmp::max,
     collections::{HashMap, HashSet},
+    str::FromStr,
 };
 
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, Serializer};
 use uuid;
 
 use crate::{
@@ -61,10 +62,15 @@ impl Game {
         }
     }
     pub fn new() -> Self {
+        let mut map = HashMap::new();
+        map.insert(Coords { x: -2, y: 0 }, TileType::Floor);
+        map.insert(Coords { x: 0, y: 0 }, TileType::Floor);
+        map.insert(Coords { x: 2, y: 0 }, TileType::Floor);
+
         Self {
             id: uuid::Uuid::new_v4(),
             entities: HashMap::new(),
-            map: HashMap::new(), // todo load map
+            map: map,
         }
     }
     pub fn blocking_entities(&self, index: i64) -> Vec<&Entity> {
@@ -88,12 +94,9 @@ impl Game {
                 .values_mut()
                 .for_each(|r| r.current = max(r.current + r.per_turn * elapsed_time, r.max));
         });
+        tracing::info!("increment ok");
     }
-    pub fn apply_ability(
-        &mut self,
-        ability: &Ability,
-        target: &Coords,
-    ) -> Result<(), ServiceError> {
+    pub fn apply_ability(&mut self, ability: &Ability, target: &Coords) {
         match ability.name {
             AbilityName::ShieldBash => {
                 let target_entity: &mut Entity =
@@ -106,9 +109,20 @@ impl Game {
                 self.entities
                     .get_mut(&ability.caster.coords)
                     .unwrap()
-                    .get_mut(0)
+                    .into_iter()
+                    .find(|e| e == &&ability.caster)
                     .unwrap()
                     .coords = target.clone();
+                let mut new_entities = HashMap::new();
+                self.entities.values_mut().flatten().for_each(|e| {
+                    match new_entities.get_mut(&e.coords) {
+                        None => {
+                            new_entities.insert(e.coords.clone(), vec![e.clone()]);
+                        }
+                        Some(vector) => vector.push(e.clone()),
+                    };
+                });
+                self.entities = new_entities;
             }
             AbilityName::Attack => {
                 let target_entity: &mut Entity =
@@ -120,9 +134,9 @@ impl Game {
         }
         let game_caster = self
             .entities
-            .get_mut(&ability.caster.coords)
-            .unwrap()
-            .get_mut(0)
+            .values_mut()
+            .flatten()
+            .find(|e| e.id == ability.caster.id)
             .unwrap();
         for (resource_name, cost) in ability.get_costs() {
             game_caster
@@ -138,7 +152,6 @@ impl Game {
             target: target.clone(),
             action_name: ability.name.clone(),
         });
-        Ok(())
     }
 }
 
@@ -192,12 +205,57 @@ pub struct Gamestate {
     pub abilities: Vec<AbilityTargets>,
     pub visible_tiles: HashSet<Coords>,
     pub allied_vision: HashSet<Coords>,
+    pub playing: uuid::Uuid,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Clone)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct Coords {
     pub x: i64,
     pub y: i64,
+}
+
+impl FromStr for Coords {
+    type Err = String;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let mut iter = s.split(",");
+        Ok(Self {
+            x: i64::from_str(iter.next().unwrap_or("<no number>")).map_err(|e| e.to_string())?,
+            y: i64::from_str(iter.next().unwrap_or("<no number>")).map_err(|e| e.to_string())?,
+        })
+    }
+}
+
+struct CoordsVisitor;
+impl<'de> serde::de::Visitor<'de> for CoordsVisitor {
+    type Value = Coords;
+    fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        Coords::from_str(value).map_err(|e| serde::de::Error::custom(e))
+    }
+
+    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        formatter.write_str("a ',' splitted pair of decimal integers")
+    }
+}
+
+impl Serialize for Coords {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&format!("{},{}", self.x, self.y))
+    }
+}
+
+impl<'de> Deserialize<'de> for Coords {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        deserializer.deserialize_str(CoordsVisitor)
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq)]
@@ -217,15 +275,15 @@ pub struct ActionLog {
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone)]
 pub struct ActionLogResponse {
     pub turn_time: i64,
-    pub caster: Entity,
-    pub target_entity: Option<EntityResponse>,
+    pub caster: uuid::Uuid,
+    pub target_entity: Option<uuid::Uuid>,
     pub action_name: AbilityName,
 }
 
 impl ActionLogResponse {
     fn from_log(
         action_log: &Vec<ActionLog>,
-        caster: Entity,
+        caster: uuid::Uuid,
         to_play: &Entity,
         entities: &HashMap<Coords, Vec<Entity>>,
         visible_tiles: &HashSet<Coords>,
@@ -235,16 +293,14 @@ impl ActionLogResponse {
             .filter(|l| l.turn_time >= to_play.last_move_time && visible_tiles.contains(&l.target))
             .map(|log| Self {
                 turn_time: log.turn_time,
-                caster: caster.clone(),
+                caster,
                 action_name: log.action_name.clone(),
                 target_entity: entities
                     .get(&log.target)
                     .unwrap_or(&vec![])
                     .get(0)
                     .cloned()
-                    .map(|entity| {
-                        EntityResponse::from_entity(entity, to_play, entities, visible_tiles)
-                    }),
+                    .map(|entity| entity.id),
             })
             .collect()
     }
@@ -264,6 +320,7 @@ pub struct AttackEntityRequest {
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone)]
 pub struct Entity {
     pub user_id: String,
+    pub id: uuid::Uuid,
     pub coords: Coords,
     pub resources: HashMap<String, Resource>,
     pub scenario_player_index: i64,
@@ -276,7 +333,7 @@ pub struct Entity {
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone)]
 pub struct EntityResponse {
     pub coords: Coords,
-    pub playing: bool,
+    pub id: uuid::Uuid,
     pub resources: HashMap<String, Resource>,
     pub scenario_player_index: i64,
     pub next_move_time: i64,
@@ -293,14 +350,14 @@ impl EntityResponse {
     ) -> Self {
         Self {
             coords: value.coords.clone(),
-            playing: &value == to_play,
+            id: value.id.clone(),
             resources: value.resources.clone(),
             scenario_player_index: value.scenario_player_index,
             next_move_time: value.next_move_time,
             game_class: value.game_class.clone(),
             log: ActionLogResponse::from_log(
                 &value.log,
-                value.clone(),
+                value.id,
                 &to_play.clone(),
                 &entities,
                 visible_tiles,
@@ -341,5 +398,5 @@ pub struct AvailableClass {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct DeployEntitiesRequest {
     pub scenario_player_id: i64,
-    pub entities: Vec<(Coords, CharClass)>,
+    pub entities: HashMap<Coords, CharClass>,
 }

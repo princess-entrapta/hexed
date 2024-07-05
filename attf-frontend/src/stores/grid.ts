@@ -9,37 +9,42 @@ function onmessage(event: any, ws: WebSocket) {
   grid.entities = {}
   grid.entities_by_id = {}
   for (let idx in messageObj.entities) {
-    let entity = messageObj.entities[idx].entity
-    let resources: Resource[] = messageObj.entities[idx].resources
-    if (!(entity.x in grid.entities)) {
-      grid.entities[entity.x] = {}
+    let entity = messageObj.entities[idx][0]
+    let coords = coordsFromString(idx)
+    if (!(coords.x in grid.entities)) {
+      grid.entities[coords.x] = {}
     }
-    let ent_obj = new Entity(entity.scenario_player_id, entity.game_class, entity.id, {});
+    let ent_obj = new Entity(entity.scenario_player_index, entity.game_class, entity.id, entity.resources);
     if (ent_obj.id == messageObj.playing) {
-      grid.curX = entity.x
-      grid.curY = entity.y
+      grid.curX = coords.x
+      grid.curY = coords.y
     }
-    grid.entities[entity.x][entity.y] = ent_obj
+    grid.entities[coords.x][coords.y] = ent_obj
     grid.entities_by_id[entity.id] = ent_obj
   }
   grid.grid = {}
   for (let idx in messageObj.visible_tiles) {
-    let tile = messageObj.visible_tiles[idx]
-    if (!(tile.x in grid.grid)) {
-      grid.grid[tile.x] = {}
+    let coords = coordsFromString(messageObj.visible_tiles[idx])
+    let tile_type = messageObj.visible_tiles[idx]
+    if (!(coords.x in grid.grid)) {
+      grid.grid[coords.x] = {}
     }
-    grid.grid[tile.x][tile.y] = { "type": tile.tile_type, "visible": true };
+    grid.grid[coords.x][coords.y] = { "type": tile_type, "visible": true };
   }
   for (let idx in messageObj.allied_vision) {
-    let tile = messageObj.allied_vision[idx]
-    if (!(tile.x in grid.grid)) {
-      grid.grid[tile.x] = {}
+    let coords = coordsFromString(messageObj.allied_vision[idx])
+    let tile_type = messageObj.allied_vision[idx]
+    if (!(coords.x in grid.grid)) {
+      grid.grid[coords.x] = {}
     }
-    grid.grid[tile.x][tile.y] = { "type": tile.tile_type, "visible": false };
+    grid.grid[coords.x][coords.y] = { "type": tile_type, "visible": false };
   }
   grid.isPlaying = true
   grid.actionLog = messageObj.logs
   grid.abilities = messageObj.abilities
+  for (let ability in messageObj.abilities) {
+    grid.abilities[ability].targets = messageObj.abilities[ability].targets.map((coords) => coordsFromString(coords))
+  }
   grid.ability = null
   grid.playing = messageObj.playing
   grid.user = grid.entities_by_id[messageObj.playing].owner
@@ -94,12 +99,20 @@ export class Entity {
   }
 }
 
+export function coordsFromString(s: String) {
+  let arr = s.split(",")
+  return new Coords(parseInt(arr[0]), parseInt(arr[1]))
+}
+
 export class Coords {
   x: number
   y: number
   constructor(x: number, y: number) {
     this.x = x
     this.y = y
+  }
+  toString() {
+    return `${this.x},${this.y}`
   }
 }
 
@@ -155,7 +168,7 @@ export const useGridStore = defineStore('grid', {
       this.gameId = id
     },
     useAbility(x: number, y: number) {
-      fetch('/game/' + this.gameId + '/ability/' + this.ability.name, { method: 'POST', headers: { 'Content-type': 'application/json' }, body: JSON.stringify({ x, y }) })
+      fetch('/game/' + this.gameId + '/ability/' + this.ability.name, { method: 'POST', headers: { 'Content-type': 'application/json' }, body: `"${x},${y}"` })
     }
   },
 });

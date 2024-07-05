@@ -10,7 +10,7 @@ export default defineConfig({
   ],
   server: {
     proxy: {
-      '^/game/[0-9]*/ws': {
+      '^/game/[0-9a-f-]*/ws': {
         target: "ws://localhost:8061",
         ws: true
       },

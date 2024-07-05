@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { reactive } from 'vue'
 import { useRouter } from 'vue-router'
+import { Coords, coordsFromString } from './grid'
 
 export class PlayerDeployment {
   entities: { [x: number]: { [y: number]: string | null } } = reactive({})
@@ -21,16 +22,17 @@ export const useDeployStore = defineStore('deploy', {
   },
   getters: {
     entityList() {
-      let list = [];
+      let obj = {};
       for (let x in this.deployments[this.idx].entities) {
         for (let y in this.deployments[this.idx].entities[x]) {
           if (this.deployments[this.idx].entities[x][y] !== null) {
-            list.push({ x: parseInt(x), y: parseInt(y), game_class: this.deployments[this.idx].entities[x][y].game_class })
+            let coords = new Coords(parseInt(x), parseInt(y))
+            obj[coords.toString()] = this.deployments[this.idx].entities[x][y].game_class
           }
         }
       }
-      console.log(list)
-      return list
+      console.log(obj)
+      return obj
     },
   },
   actions: {
@@ -42,16 +44,17 @@ export const useDeployStore = defineStore('deploy', {
         for (let player in this.deployments) {
           this.deployments[player].entities = {}
           this.deployments[player].drop_tiles.map((o) => {
+            let coords = coordsFromString(o);
             let o1 = {};
-            o1[o.y] = null;
-            this.deployments[player].entities[o.x] = o1;
+            o1[coords.y] = null;
+            this.deployments[player].entities[coords.x] = o1;
           })
         }
       }))
     },
     deploy() {
       let router = useRouter()
-      fetch('/game/' + this.gameId + '/deploy', { method: 'POST', headers: { 'Content-type': 'application/json' }, body: JSON.stringify({ scenario_player_id: this.deployments[this.idx].id, entities: this.entityList }) }).then(() => router.push("/play/" + this.gameId))
+      fetch('/game/' + this.gameId + '/deploy', { method: 'POST', headers: { 'Content-type': 'application/json' }, body: JSON.stringify({ scenario_player_id: this.idx, entities: this.entityList }) }).then(() => router.push("/play/" + this.gameId))
     }
   }
 }

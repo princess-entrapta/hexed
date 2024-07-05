@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { defineProps } from 'vue'
 import { useDeployStore } from '@/stores/deploy.ts'
+import { coordsFromString } from '@/stores/grid'
 import Tile from './Tile.vue'
 import Creature from './Creature.vue'
 
@@ -16,13 +17,13 @@ const store = useDeployStore()
     <div class="container">
         <div class="left-panel">
             <div class="no-entity" @click="store.selectedCreature = null">none</div>
-            <Creature v-for="entity in entities" :game_class="entity.game_class"
-                @click="store.selectedCreature = entity"></Creature>
+            <Creature v-for="entity in entities" :game_class="entity.game_class" @click="store.selectedCreature = entity">
+            </Creature>
         </div>
         <div class="grid-panel">
-            <Tile v-for="tile in tiles" :x="tile.x + ''" :y="tile.y + ''" tileType="Floor"
-                :entity="deployedEntities[tile.x + ''][tile.y + '']"
-                @click="deployedEntities[tile.x + ''][tile.y + ''] = store.selectedCreature">
+            <Tile v-for="tile in tiles" :x="coordsFromString(tile).x" :y="coordsFromString(tile).y" tileType="Floor"
+                :entity="deployedEntities[coordsFromString(tile).x][coordsFromString(tile).y]"
+                @click="deployedEntities[coordsFromString(tile).x][coordsFromString(tile).y] = store.selectedCreature">
             </Tile>
         </div>
         <button @click="store.deploy">Deploy and start game</button>

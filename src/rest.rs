@@ -1,5 +1,5 @@
 use crate::abilities::AbilityName;
-use crate::schemas::{Coords, DeployEntitiesRequest, Gamestate, LoginForm};
+use crate::schemas::{Coords, DeployEntitiesRequest, Gamestate, LoginForm, UserData};
 use crate::services::{tick, ServiceError};
 use crate::stores::database::Repository;
 use crate::stores::events::Events;
@@ -33,6 +33,25 @@ pub async fn login(
                 return Redirect::to("/play").into_response();
             }
             ServiceError::Unauthorized.into_response()
+        }
+        Err(error) => error.into_response(),
+    }
+}
+
+pub async fn create_user(
+    State(repo): State<Repositories>,
+    session: Session,
+    Form(fdata): Form<LoginForm>,
+) -> impl IntoResponse {
+    let user_data = UserData::from(fdata);
+    match repo.db.save_user(&user_data).await {
+        Ok(_) => {
+            session
+                .insert("roles", &user_data.roles.clone())
+                .await
+                .unwrap();
+            session.insert("user", user_data.id).await.unwrap();
+            return Redirect::to("/play").into_response();
         }
         Err(error) => error.into_response(),
     }
@@ -142,7 +161,7 @@ pub async fn get_scenario_players(
 pub async fn get_available_scenario_players(
     State(repo): State<Repositories>,
     _user: AuthenticatedUser,
-    Path(game_id): Path<i64>,
+    Path(game_id): Path<uuid::Uuid>,
 ) -> impl IntoResponse {
     let result = services::get_available_scenario_players(repo.db, game_id).await;
     match result {
@@ -217,7 +236,10 @@ async fn handle_socket(
                 tracing::info!("error {:?}", _res.unwrap_err());
             }
         }
-        Err(_) => return,
+        Err(res) => {
+            tracing::info!("error {:?}", res);
+            return;
+        }
     }
 
     let (sock_sender, sock_receiver) = socket.split();
