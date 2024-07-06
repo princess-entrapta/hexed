@@ -14,6 +14,7 @@ use crate::stores::events::Events;
 // pub mod config
 pub mod abilities;
 pub mod charclasses;
+pub mod map;
 pub mod rest;
 pub mod schemas;
 pub mod services;

@@ -94,8 +94,8 @@ impl Ability {
     pub fn max_range(&self, caster_class: &CharClass) -> f64 {
         match self.name {
             AbilityName::ShieldBash | AbilityName::Attack => caster_class.get_attack_range(),
-            AbilityName::Move => 2.0,
-            AbilityName::Wait => 0.0,
+            AbilityName::Move => 2.001,
+            AbilityName::Wait => 0.001,
         }
     }
 

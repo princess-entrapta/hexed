@@ -82,16 +82,20 @@ export const useMouseInfoStore = defineStore('mouseinfo', {
 })
 
 type Resource = {
-  resource_name: string;
+  name: string;
+  current: number,
+  max: number,
+  per_turn: number
 }
 
+type Resources = { [key: string]: Resource }
 
 export class Entity {
   owner: string
   game_class: string
   id: number
-  resources: Object
-  constructor(owner: string, game_class: string, id: number, resources: Object) {
+  resources: Resources
+  constructor(owner: string, game_class: string, id: number, resources: Resources) {
     this.game_class = game_class
     this.id = id
     this.owner = owner
@@ -116,6 +120,17 @@ export class Coords {
   }
 }
 
+export function isAbilityReady(ab: Object) {
+  let grid = useGridStore()
+  let playingEntity = grid.playing ? grid.entities_by_id[grid.playing] : null
+  if (!playingEntity) return false
+  for (let idx in ab.costs) {
+    let cost = ab.costs[idx];
+    if (playingEntity.resources[cost[0]].current < cost[1]) return false
+  }
+  return true
+}
+
 export const useGridStore = defineStore('grid', {
   state: () => {
     let grid: { [x: number]: { [y: number]: Object } } = reactive({})
@@ -130,7 +145,6 @@ export const useGridStore = defineStore('grid', {
     let curY: number | null = null
     let gameId: number | null = null
     //var ws = new WebSocket('wss://' + location.host + "/api/" + location.pathname);
-
 
     const isPlaying = false
 
@@ -154,7 +168,7 @@ export const useGridStore = defineStore('grid', {
       }
       for (let ab in state.abilities) {
         for (let t in state.abilities[ab].targets) {
-          if (state.abilities[ab].targets[t].x == mouse.tileSelected.x && state.abilities[ab].targets[t].y == mouse.tileSelected.y)
+          if (state.abilities[ab].targets[t].x == mouse.tileSelected.x && state.abilities[ab].targets[t].y == mouse.tileSelected.y && isAbilityReady(state.abilities[ab]))
             abilities.push(parseInt(ab))
         }
       }

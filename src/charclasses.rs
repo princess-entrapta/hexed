@@ -47,7 +47,7 @@ impl CharClass {
             Resource {
                 max: 1000,
                 current: 1000,
-                per_turn: 5,
+                per_turn: 1,
             },
         )];
 

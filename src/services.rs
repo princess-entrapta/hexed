@@ -1,8 +1,11 @@
 use std::{
     collections::{HashMap, HashSet},
     hash::RandomState,
+    time::Duration,
 };
 
+use serde::{Deserialize, Serialize};
+use tokio::time::Instant;
 use uuid::Uuid;
 
 use crate::{
@@ -15,7 +18,7 @@ use crate::{
     stores::{database::Repository, events::Events},
 };
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ServiceError {
     StorageError(String),
     BadRequest(String),
@@ -63,6 +66,7 @@ impl ToString for ServiceError {
 }
 
 pub fn get_gamestate(game: &Game) -> Result<Gamestate, ServiceError> {
+    // let ggs_start = Instant::now();
     let to_play = game.get_trait_entity()?;
     let allied_entities = game.allied_entities(to_play.scenario_player_index);
     let blocking_entities = game.blocking_entities(to_play.scenario_player_index);
@@ -72,7 +76,6 @@ pub fn get_gamestate(game: &Game) -> Result<Gamestate, ServiceError> {
         &game.map,
         &blocking_entities,
     );
-    tracing::info!("game {:?}", game);
     let visible_entities: HashMap<Coords, Vec<EntityResponse>, RandomState> = HashMap::from_iter(
         game.entities
             .clone()
@@ -100,7 +103,7 @@ pub fn get_gamestate(game: &Game) -> Result<Gamestate, ServiceError> {
             })
             .filter(|(_coords, vec_e)| vec_e.len() != 0),
     );
-    Ok(Gamestate {
+    let gs = Gamestate {
         id: game.id,
         entities: visible_entities,
         playing: to_play.id,
@@ -140,7 +143,9 @@ pub fn get_gamestate(game: &Game) -> Result<Gamestate, ServiceError> {
             .collect(),
         visible_tiles: los_tiles,
         allied_vision,
-    })
+    };
+    // tracing::info!("ggs time_ms: {}", (Instant::now() - ggs_start).as_millis());
+    Ok(gs)
 }
 
 pub fn get_distance(start: &Coords, end: &Coords) -> f64 {
@@ -564,6 +569,7 @@ pub async fn use_ability(
     ability_name: AbilityName,
     target: Coords,
 ) -> Result<(), ServiceError> {
+    let start = Instant::now();
     let game = repo.load_game(&game_id).await?;
     let entity = game.get_trait_entity()?;
     let current_time = entity.next_move_time;
@@ -599,12 +605,12 @@ pub async fn use_ability(
 
     let new_entity = mut_game.get_trait_entity()?;
     let elapsed_time = new_entity.next_move_time - current_time;
-    tracing::info!("elapsed {:?}", elapsed_time);
 
     mut_game.increment_resources(elapsed_time);
     let gamestate = get_gamestate(&mut_game)?;
-    tracing::info!("{:?}", gamestate);
     let _res = events.send_event(gamestate, game_id, user_id).await;
+
     repo.save_game(&mut_game).await?;
+
     Ok(())
 }

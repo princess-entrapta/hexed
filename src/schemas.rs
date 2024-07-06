@@ -1,5 +1,5 @@
 use std::{
-    cmp::max,
+    cmp::min,
     collections::{HashMap, HashSet},
     str::FromStr,
 };
@@ -39,7 +39,9 @@ pub enum GameStatus {
 impl Game {
     pub fn get_trait_entity(&self) -> Result<&Entity, ServiceError> {
         match self.entities.values().flatten().reduce(|acc, e| {
-            if e.next_move_time < acc.next_move_time {
+            if e.next_move_time < acc.next_move_time
+                || e.next_move_time == acc.next_move_time && e.id > acc.id
+            {
                 e
             } else {
                 acc
@@ -51,7 +53,9 @@ impl Game {
     }
     pub fn get_trait_entity_mut(&mut self) -> Result<&mut Entity, ServiceError> {
         match self.entities.values_mut().flatten().reduce(|acc, e| {
-            if e.next_move_time < acc.next_move_time {
+            if e.next_move_time < acc.next_move_time
+                || e.next_move_time == acc.next_move_time && e.id > acc.id
+            {
                 e
             } else {
                 acc
@@ -92,10 +96,10 @@ impl Game {
         self.entities.values_mut().flatten().for_each(|e| {
             e.resources
                 .values_mut()
-                .for_each(|r| r.current = max(r.current + r.per_turn * elapsed_time, r.max));
+                .for_each(|r| r.current = min(r.current + r.per_turn * elapsed_time, r.max));
         });
-        tracing::info!("increment ok");
     }
+
     pub fn apply_ability(&mut self, ability: &Ability, target: &Coords) {
         match ability.name {
             AbilityName::ShieldBash => {

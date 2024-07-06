@@ -1,5 +1,5 @@
 <script lang="ts">
-import { useGridStore, useMouseInfoStore } from '@/stores/grid';
+import { useGridStore, useMouseInfoStore, isAbilityReady } from '@/stores/grid';
 
 export default {
     data() {
@@ -7,6 +7,11 @@ export default {
         let mouse = useMouseInfoStore()
         return { grid, mouse }
     },
+    methods: {
+        ready(ab) {
+            return isAbilityReady(ab)
+        }
+    }
 }
 
 </script>
@@ -16,13 +21,10 @@ export default {
 <template>
     <div class="inventory">
         <div class="slots">
-            <div :class="'slot ' + (ab == grid.ability ? 'selected ' : '') + (!grid.ability && mouse.tileSelected && grid.proposedAbilities.indexOf(idx) != -1 ? 'proposed ' : '')"
+            <div :class="'slot ' + (ab == grid.ability ? 'selected ' : '') + (!grid.ability && mouse.tileSelected && grid.proposedAbilities.indexOf(idx) != -1 ? 'proposed ' : '') + (ready(ab) ? '' : 'disabled ')"
                 v-for="(ab, idx) in  grid.abilities "
-                @click.stop="(ev) => { grid.ability = ab; if (mouse.tileSelected && grid.proposedAbilities.indexOf(idx) != -1) grid.useAbility(mouse.tileSelected.x, mouse.tileSelected.y) }">
-                {{ ab.name }}
-                <!-- <img v-if="selectedCreature && selectedCreature.actionData.length > i"
-                    :src="selectedCreature.actionData[i].imgUrl"> 
-                -->
+                @click.stop="(ev) => { grid.ability = ab; if (grid.ability.targets.length == 1) {mouse.tileSelected = grid.ability.targets[0]} if (mouse.tileSelected && grid.proposedAbilities.indexOf(idx) != -1) grid.useAbility(mouse.tileSelected.x, mouse.tileSelected.y) }">
+                {{ ab.name }} {{ }}
             </div>
         </div>
         <div class="tooltip">
@@ -42,11 +44,18 @@ export default {
 }
 
 .inventory .slot.selected {
-    background-color: #888;
+    background-color: #2a8;
+    color: white;
 }
 
 .inventory .slot.proposed {
     background-color: green;
+    color: white
+}
+
+.inventory .slot.disabled {
+    background-color: #666;
+    color: #999;
 }
 
 .img {
